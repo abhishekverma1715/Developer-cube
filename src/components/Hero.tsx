@@ -74,12 +74,12 @@ export default function Hero() {
             <div className="relative w-full h-[400px] sm:h-[480px] bg-neutral-950 border border-neutral-900 rounded-xl overflow-hidden shadow-2xl">
               <HeroCanvas />
               {/* Canvas Overlay Labels */}
-              <div className="absolute top-4 left-4 font-mono text-[10px] text-neutral-500 tracking-widest uppercase pointer-events-none">
-                // CANVAS_3D // CAM_Z: 12.6
+              <div className="absolute top-4 left-4 font-mono text-[10px] text-neutral-400 tracking-widest uppercase pointer-events-none bg-neutral-900/60 backdrop-blur-md px-2.5 py-1 rounded border border-neutral-800">
+                // CANVAS_3D // ANIME.JS_INSTANCED_MESH
               </div>
-              <div className="absolute bottom-4 right-4 font-mono text-[10px] text-white tracking-widest uppercase pointer-events-none flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                INTERACTIVE THREE.JS
+              <div className="absolute bottom-4 right-4 font-mono text-[10px] text-white tracking-widest uppercase pointer-events-none flex items-center gap-2 bg-neutral-900/60 backdrop-blur-md px-2.5 py-1 rounded border border-neutral-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                THREE.JS INSTANCED MESH (6x6x6)
               </div>
             </div>
           </div>

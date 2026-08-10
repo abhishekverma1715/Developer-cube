@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { animate, stagger } from "animejs";
+import { getInstances } from "animejs/adapters/three";
 
 export default function HeroCanvas() {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -9,93 +11,114 @@ export default function HeroCanvas() {
   useEffect(() => {
     if (!mountRef.current) return;
 
+    const container = mountRef.current;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // 1. Scene Setup
     const scene = new THREE.Scene();
-    const width = mountRef.current.clientWidth;
-    const height = mountRef.current.clientHeight;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
 
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.z = 12.6;
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.set(0, 0, 3.2);
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    mountRef.current.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
-    const mainGroup = new THREE.Group();
-    scene.add(mainGroup);
+    // 2. Lighting Setup
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
 
-    // 1. Outer Wireframe Cube - Pure Monochrome White/Grey
-    const outerCubeGeo = new THREE.BoxGeometry(4.2, 4.2, 4.2);
-    const outerCubeMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.25,
+    const dirLight1 = new THREE.DirectionalLight(0x60a5fa, 2.5); // Cyan-blue light
+    dirLight1.position.set(3, 4, 5);
+    scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0xc084fc, 2.0); // Purple-pink light
+    dirLight2.position.set(-3, -2, -3);
+    scene.add(dirLight2);
+
+    // 3. InstancedMesh Setup
+    const gridSize = 6; // 6 x 6 x 6 = 216 instances
+    const totalInstances = gridSize * gridSize * gridSize;
+    const cellSize = 1.6 / gridSize;
+    const spread = ((gridSize - 1) / 2) * cellSize;
+
+    const geometry = new THREE.BoxGeometry(cellSize * 0.75, cellSize * 0.75, cellSize * 0.75);
+    const material = new THREE.MeshStandardMaterial({
+      roughness: 0.25,
+      metalness: 0.75,
     });
-    const outerCube = new THREE.Mesh(outerCubeGeo, outerCubeMat);
-    mainGroup.add(outerCube);
 
-    // 2. Inner Wireframe Cube
-    const innerCubeGeo = new THREE.BoxGeometry(2.6, 2.6, 2.6);
-    const innerCubeMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.5,
+    const mesh = new THREE.InstancedMesh(geometry, material, totalInstances);
+    scene.add(mesh);
+
+    // 4. Anime.js InstancedMesh Proxy Adapter
+    const instances = getInstances(mesh);
+
+    const palette = [
+      "#60a5fa", // Blue
+      "#a78bfa", // Purple
+      "#f472b6", // Pink
+      "#34d399", // Emerald
+      "#38bdf8", // Sky
+      "#f59e0b", // Amber
+      "#ffffff", // Crisp White
+    ];
+
+    const gridAxis = (axis: "x" | "y" | "z", span = spread) =>
+      stagger([-span, span], { grid: [gridSize, gridSize, gridSize], axis });
+
+    // Continuous rotation of the entire mesh
+    const meshRotationAnim = animate(mesh, {
+      rotateY: 360,
+      rotateX: 360,
+      duration: 24000,
+      loop: true,
+      ease: "linear",
     });
-    const innerCube = new THREE.Mesh(innerCubeGeo, innerCubeMat);
-    mainGroup.add(innerCube);
 
-    // 3. Icosahedron Core
-    const icoGeo = new THREE.IcosahedronGeometry(1.2, 1);
-    const icoMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.9,
+    // Staggered per-instance animation through per-instance proxies
+    const instancesAnim = animate(instances, {
+      color: palette,
+      x: [gridAxis("x", spread * 0.25), gridAxis("x")],
+      y: [gridAxis("y", spread * 0.25), gridAxis("y")],
+      z: [gridAxis("z", spread * 0.25), gridAxis("z")],
+      scale: [0.12, 0.28, 0.12],
+      delay: stagger([0, 3000], {
+        grid: [gridSize, gridSize, gridSize],
+        from: "center",
+        reversed: true,
+      }),
+      duration: 2200,
+      loopDelay: 500,
+      loop: true,
+      alternate: true,
+      ease: "inOutQuad",
     });
-    const icoCore = new THREE.Mesh(icoGeo, icoMat);
-    mainGroup.add(icoCore);
 
-    // 4. Vertex Nodes
-    const nodePositions: number[] = [];
-    const posAttribute = icoGeo.attributes.position;
-    for (let i = 0; i < posAttribute.count; i++) {
-      nodePositions.push(posAttribute.getX(i), posAttribute.getY(i), posAttribute.getZ(i));
-    }
-    const nodesGeo = new THREE.BufferGeometry();
-    nodesGeo.setAttribute("position", new THREE.Float32BufferAttribute(nodePositions, 3));
-    const nodesMat = new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.08,
-      transparent: true,
-      opacity: 1.0,
-    });
-    const vertexNodes = new THREE.Points(nodesGeo, nodesMat);
-    mainGroup.add(vertexNodes);
-
-    // 5. 900 particles of dust - Monochrome White/Grey
-    const particleCount = 900;
+    // 5. Ambient Dust Particles
+    const particleCount = 250;
     const particlesGeo = new THREE.BufferGeometry();
     const particlePos = new Float32Array(particleCount * 3);
 
     for (let i = 0; i < particleCount * 3; i += 3) {
-      particlePos[i] = (Math.random() - 0.5) * 16;
-      particlePos[i + 1] = (Math.random() - 0.5) * 16;
-      particlePos[i + 2] = (Math.random() - 0.5) * 16;
+      particlePos[i] = (Math.random() - 0.5) * 6;
+      particlePos[i + 1] = (Math.random() - 0.5) * 6;
+      particlePos[i + 2] = (Math.random() - 0.5) * 6;
     }
     particlesGeo.setAttribute("position", new THREE.BufferAttribute(particlePos, 3));
     const particlesMat = new THREE.PointsMaterial({
-      color: 0x888888,
-      size: 0.03,
+      color: 0x94a3b8,
+      size: 0.015,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.4,
     });
     const dustParticles = new THREE.Points(particlesGeo, particlesMat);
     scene.add(dustParticles);
 
+    // 6. Interactive Mouse Parallax
     let mouseX = 0;
     let mouseY = 0;
     let targetX = 0;
@@ -103,13 +126,14 @@ export default function HeroCanvas() {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (prefersReducedMotion) return;
-      const halfW = window.innerWidth / 2;
-      const halfH = window.innerHeight / 2;
-      mouseX = (e.clientX - halfW) * 0.0008;
-      mouseY = (e.clientY - halfH) * 0.0008;
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      mouseX = (x / rect.width) * 0.5;
+      mouseY = (y / rect.height) * 0.5;
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
+    container.addEventListener("mousemove", handleMouseMove);
 
     const handleResize = () => {
       if (!mountRef.current) return;
@@ -122,41 +146,44 @@ export default function HeroCanvas() {
 
     window.addEventListener("resize", handleResize);
 
-    let animationId: number;
+    // 7. Render Loop
+    let animationFrameId: number;
     const clock = new THREE.Clock();
 
-    const animate = () => {
-      animationId = requestAnimationFrame(animate);
+    const render = () => {
+      animationFrameId = requestAnimationFrame(render);
       const elapsedTime = clock.getElapsedTime();
 
       if (!prefersReducedMotion) {
-        mainGroup.rotation.y = elapsedTime * 0.15;
-        mainGroup.rotation.x = elapsedTime * 0.08;
-
-        icoCore.rotation.y = -elapsedTime * 0.25;
-        innerCube.rotation.z = elapsedTime * 0.1;
-
-        dustParticles.rotation.y = elapsedTime * 0.03;
+        dustParticles.rotation.y = elapsedTime * 0.04;
 
         targetX += (mouseX - targetX) * 0.05;
         targetY += (mouseY - targetY) * 0.05;
 
-        mainGroup.position.x = targetX * 2;
-        mainGroup.position.y = -targetY * 2;
+        camera.position.x = targetX * 0.8;
+        camera.position.y = -targetY * 0.8;
+        camera.lookAt(scene.position);
       }
 
       renderer.render(scene, camera);
     };
 
-    animate();
+    render();
 
+    // Cleanup
     return () => {
-      cancelAnimationFrame(animationId);
-      window.removeEventListener("mousemove", handleMouseMove);
+      cancelAnimationFrame(animationFrameId);
+      meshRotationAnim.pause();
+      instancesAnim.pause();
+      container.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", handleResize);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
+      if (container && renderer.domElement) {
+        container.removeChild(renderer.domElement);
       }
+      geometry.dispose();
+      material.dispose();
+      particlesGeo.dispose();
+      particlesMat.dispose();
       renderer.dispose();
     };
   }, []);
