@@ -4,8 +4,14 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { animate, stagger } from "animejs";
 import { getInstances } from "animejs/adapters/three";
+import { PerfSettings } from "./PerformanceModal";
 
-export default function HeroCanvas() {
+interface HeroCanvasProps {
+  perfSettings?: PerfSettings;
+  isFreeOrbit?: boolean;
+}
+
+export default function HeroCanvas({ perfSettings, isFreeOrbit }: HeroCanvasProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -14,29 +20,35 @@ export default function HeroCanvas() {
     const container = mountRef.current;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // 1. Scene & Full-screen Camera Setup
+    // 1. Scene & Camera Setup
     const scene = new THREE.Scene();
     const width = container.clientWidth;
     const height = container.clientHeight;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    // Adjusted camera distance for full screen coverage
     camera.position.set(0, 0, 3.8);
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    const resolutionScale = perfSettings?.resolution ?? 1.0;
+    const msaaSamples = perfSettings?.msaa ?? 2;
+
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: msaaSamples > 0,
+      powerPreference: "high-performance",
+    });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * resolutionScale);
     container.appendChild(renderer.domElement);
 
     // 2. Lighting Setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
     scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0x60a5fa, 2.8); // Vibrant cyan-blue light
+    const dirLight1 = new THREE.DirectionalLight(0x60a5fa, 2.8); // Blue
     dirLight1.position.set(4, 5, 6);
     scene.add(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight(0xc084fc, 2.2); // Vibrant purple-pink light
+    const dirLight2 = new THREE.DirectionalLight(0xc084fc, 2.2); // Purple
     dirLight2.position.set(-4, -3, -4);
     scene.add(dirLight2);
 
@@ -59,19 +71,18 @@ export default function HeroCanvas() {
     const instances = getInstances(mesh);
 
     const palette = [
-      "#60a5fa", // Vibrant Blue
-      "#a78bfa", // Electric Purple
-      "#f472b6", // Neon Pink
-      "#34d399", // Emerald Green
-      "#38bdf8", // Sky Blue
-      "#f59e0b", // Warm Amber
-      "#ffffff", // Crisp White
+      "#60a5fa", // Blue
+      "#a78bfa", // Purple
+      "#f472b6", // Pink
+      "#34d399", // Emerald
+      "#38bdf8", // Sky
+      "#f59e0b", // Amber
+      "#ffffff", // White
     ];
 
     const gridAxis = (axis: "x" | "y" | "z", span = spread) =>
       stagger([-span, span], { grid: [gridSize, gridSize, gridSize], axis });
 
-    // Continuous rotation of the whole 3D mesh
     const meshRotationAnim = animate(mesh, {
       rotateY: 360,
       rotateX: 360,
@@ -80,7 +91,6 @@ export default function HeroCanvas() {
       ease: "linear",
     });
 
-    // Per-instance staggered animations using Anime.js stagger
     const instancesAnim = animate(instances, {
       color: palette,
       x: [gridAxis("x", spread * 0.25), gridAxis("x")],
@@ -99,34 +109,40 @@ export default function HeroCanvas() {
       ease: "inOutQuad",
     });
 
-    // 5. Ambient Dust Particles across full screen
-    const particleCount = 400;
-    const particlesGeo = new THREE.BufferGeometry();
-    const particlePos = new Float32Array(particleCount * 3);
+    // 5. Dust Particles (conditional on perfSettings.dust)
+    let dustParticles: THREE.Points | null = null;
+    let particlesGeo: THREE.BufferGeometry | null = null;
+    let particlesMat: THREE.PointsMaterial | null = null;
 
-    for (let i = 0; i < particleCount * 3; i += 3) {
-      particlePos[i] = (Math.random() - 0.5) * 10;
-      particlePos[i + 1] = (Math.random() - 0.5) * 10;
-      particlePos[i + 2] = (Math.random() - 0.5) * 10;
+    if (perfSettings?.dust !== false) {
+      const particleCount = 400;
+      particlesGeo = new THREE.BufferGeometry();
+      const particlePos = new Float32Array(particleCount * 3);
+
+      for (let i = 0; i < particleCount * 3; i += 3) {
+        particlePos[i] = (Math.random() - 0.5) * 10;
+        particlePos[i + 1] = (Math.random() - 0.5) * 10;
+        particlePos[i + 2] = (Math.random() - 0.5) * 10;
+      }
+      particlesGeo.setAttribute("position", new THREE.BufferAttribute(particlePos, 3));
+      particlesMat = new THREE.PointsMaterial({
+        color: 0x94a3b8,
+        size: 0.02,
+        transparent: true,
+        opacity: 0.45,
+      });
+      dustParticles = new THREE.Points(particlesGeo, particlesMat);
+      scene.add(dustParticles);
     }
-    particlesGeo.setAttribute("position", new THREE.BufferAttribute(particlePos, 3));
-    const particlesMat = new THREE.PointsMaterial({
-      color: 0x94a3b8,
-      size: 0.02,
-      transparent: true,
-      opacity: 0.45,
-    });
-    const dustParticles = new THREE.Points(particlesGeo, particlesMat);
-    scene.add(dustParticles);
 
-    // 6. Interactive Mouse Parallax over full window
+    // 6. Interactive Mouse & Free Orbit Motion
     let mouseX = 0;
     let mouseY = 0;
     let targetX = 0;
     let targetY = 0;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (prefersReducedMotion) return;
+      if (prefersReducedMotion || perfSettings?.smoothMotion === false) return;
       const halfW = window.innerWidth / 2;
       const halfH = window.innerHeight / 2;
       mouseX = (e.clientX - halfW) / halfW;
@@ -155,14 +171,23 @@ export default function HeroCanvas() {
       const elapsedTime = clock.getElapsedTime();
 
       if (!prefersReducedMotion) {
-        dustParticles.rotation.y = elapsedTime * 0.03;
+        if (dustParticles) {
+          dustParticles.rotation.y = elapsedTime * 0.03;
+        }
 
-        targetX += (mouseX - targetX) * 0.05;
-        targetY += (mouseY - targetY) * 0.05;
+        if (isFreeOrbit) {
+          camera.position.x = Math.sin(elapsedTime * 0.4) * 4.2;
+          camera.position.z = Math.cos(elapsedTime * 0.4) * 4.2;
+          camera.position.y = Math.sin(elapsedTime * 0.2) * 1.5;
+        } else {
+          targetX += (mouseX - targetX) * 0.05;
+          targetY += (mouseY - targetY) * 0.05;
 
-        // Position offset for hero layout balance
-        mesh.position.x = targetX * 0.4 + (window.innerWidth > 1024 ? 0.6 : 0);
-        mesh.position.y = -targetY * 0.4;
+          mesh.position.x = targetX * 0.4 + (window.innerWidth > 1024 ? 0.6 : 0);
+          mesh.position.y = -targetY * 0.4;
+          camera.position.set(0, 0, 3.8);
+        }
+
         camera.lookAt(scene.position);
       }
 
@@ -183,11 +208,11 @@ export default function HeroCanvas() {
       }
       geometry.dispose();
       material.dispose();
-      particlesGeo.dispose();
-      particlesMat.dispose();
+      particlesGeo?.dispose();
+      particlesMat?.dispose();
       renderer.dispose();
     };
-  }, []);
+  }, [perfSettings, isFreeOrbit]);
 
   return <div ref={mountRef} className="w-full h-full min-h-screen" />;
 }
