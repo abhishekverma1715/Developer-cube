@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import Veil from "@/components/Veil";
 import Hud from "@/components/Hud";
 import Toolbar from "@/components/Toolbar";
 import PerformanceModal, { PerfSettings } from "@/components/PerformanceModal";
@@ -19,6 +20,7 @@ import { useSound } from "@/hooks/useSound";
 
 export default function Home() {
   const [currentStage, setCurrentStage] = useState(0);
+  const [isVeilActive, setIsVeilActive] = useState(true);
   const [isPerfModalOpen, setIsPerfModalOpen] = useState(false);
   const [isFreeOrbit, setIsFreeOrbit] = useState(false);
   const [perfSettings, setPerfSettings] = useState<PerfSettings>({
@@ -76,8 +78,18 @@ export default function Home() {
     setPerfSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
+  const handleBeginAscent = () => {
+    if (!soundEnabled) {
+      toggleSound();
+    }
+    setIsVeilActive(false);
+  };
+
   return (
     <div className="bg-[#070b12] text-[#EDEDF2] min-h-screen flex flex-col selection:bg-[#d8b787] selection:text-[#070b12]">
+      {/* Everest Intro Veil Loading Screen */}
+      {isVeilActive && <Veil onBegin={handleBeginAscent} onPlayClick={playClick} />}
+
       {/* Top Telemetry HUD Header */}
       <Hud currentStage={currentStage} />
 
@@ -95,7 +107,11 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main id="main-content" className="flex-grow">
-        <Hero perfSettings={perfSettings} isFreeOrbit={isFreeOrbit} />
+        <Hero
+          perfSettings={perfSettings}
+          isFreeOrbit={isFreeOrbit}
+          onPlayClick={playClick}
+        />
         <TechMarquee />
         <AgencyStages />
         <SelectedWork />

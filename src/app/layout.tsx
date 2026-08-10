@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Inter } from "next/font/google";
+import { JetBrains_Mono, Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import SkipLink from "@/components/SkipLink";
 import CustomCursor from "@/components/CustomCursor";
@@ -17,8 +17,15 @@ const inter = Inter({
   weight: ["400", "500", "600", "700"],
 });
 
+const playfair = Playfair_Display({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  weight: ["400", "600", "700", "900"],
+});
+
 export const metadata: Metadata = {
-  title: "Developer Cube — Digital Agency | Agra, India",
+  title: "Developer Cube · The Digital Ascent | Digital Agency",
   description:
     "Developer Cube is a three-developer digital agency in Agra, India. We build Shopify storefronts, Next.js web applications, Android apps, and custom REST APIs worldwide.",
   keywords: [
@@ -40,9 +47,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${jetbrainsMono.variable} ${inter.variable} dark scroll-smooth`}
+      className={`${jetbrainsMono.variable} ${inter.variable} ${playfair.variable} dark scroll-smooth`}
     >
-      <body className="bg-[#050506] text-[#EDEDF2] min-h-screen flex flex-col font-sans antialiased selection:bg-[#00E5C7] selection:text-[#050506]">
+      <body className="bg-[#070b12] text-[#EDEDF2] min-h-screen flex flex-col font-sans antialiased selection:bg-[#d8b787] selection:text-[#070b12]">
         <SkipLink />
         <CustomCursor />
         <LenisScroll />
