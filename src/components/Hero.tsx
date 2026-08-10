@@ -31,6 +31,12 @@ export default function Hero({ perfSettings, isFreeOrbit, onPlayClick }: HeroPro
       {/* Background Grid Pattern */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a2333_1px,transparent_1px),linear-gradient(to_bottom,#1a2333_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_40%,#000_70%,transparent_100%)] opacity-25 pointer-events-none z-0" />
 
+      {/* Hero Badge Tag (Floating top-right) */}
+      <div className="absolute top-28 right-6 sm:right-12 z-20 hidden md:flex items-center gap-2 font-mono-code text-[10px] text-[#94a3b8] tracking-widest uppercase bg-[#0b0d12]/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#1e293b] shadow-2xl">
+        <span className="w-2 h-2 rounded-full bg-[#d8b787] animate-ping" />
+        <span>3D CINEMATIC MOUNTAIN TERRAIN (SAGARMATHA)</span>
+      </div>
+
       {/* Main Center Content Container (Matching Everest #s0 card & hin structure) */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full my-auto text-center flex flex-col items-center justify-center space-y-8">
         
